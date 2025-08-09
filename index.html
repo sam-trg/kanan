@@ -3,33 +3,32 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Shake to Reveal</title>
+<title>Scratch to Reveal</title>
 <style>
   html, body {
     margin: 0;
     padding: 0;
     background: #111;
-    color: white;
     height: 100%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    font-family: sans-serif;
-    text-align: center;
     overflow: hidden;
+    font-family: sans-serif;
   }
-  #message {
-    font-size: 2rem;
-    padding: 1rem;
+  #container {
+    position: relative;
+    width: 100%;
+    height: 100%;
   }
-  #reveal {
-    position: fixed;
+  #hiddenImage {
+    position: absolute;
     inset: 0;
-    background-size: cover;
-    background-position: center;
-    opacity: 0;
-    transition: opacity 1s ease-in-out;
+    background: url('me_and_sister.jpg') center/cover no-repeat;
+    z-index: 0;
+  }
+  #scratchCanvas {
+    position: absolute;
+    inset: 0;
     z-index: 1;
+    touch-action: none;
   }
   #overlayText {
     position: absolute;
@@ -42,93 +41,133 @@
     text-shadow: 0 0 10px rgba(0,0,0,0.8);
     opacity: 0;
     transition: opacity 1s ease-in-out;
+    z-index: 2;
   }
-  canvas {
+  canvas#confetti {
     position: fixed;
     top: 0;
     left: 0;
     pointer-events: none;
-    z-index: 2;
+    z-index: 3;
   }
 </style>
 </head>
 <body>
-<div id="message">Shake to reveal</div>
-<div id="reveal"></div>
-<div id="overlayText">Happy Rakhi!</div>
-<canvas id="confetti"></canvas>
+<div id="container">
+  <div id="hiddenImage"></div>
+  <canvas id="scratchCanvas"></canvas>
+  <div id="overlayText">Happy Rakhi!</div>
+  <canvas id="confetti"></canvas>
+</div>
 <audio id="celebrationSound" src="celebration.mp3" preload="auto"></audio>
 
 <script>
-  const reveal = document.getElementById('reveal');
-  const overlayText = document.getElementById('overlayText');
-  const sound = document.getElementById('celebrationSound');
-  const canvas = document.getElementById('confetti');
-  const ctx = canvas.getContext('2d');
-  let particles = [];
+const scratchCanvas = document.getElementById('scratchCanvas');
+const ctx = scratchCanvas.getContext('2d');
+const overlayText = document.getElementById('overlayText');
+const sound = document.getElementById('celebrationSound');
+const confettiCanvas = document.getElementById('confetti');
+const confettiCtx = confettiCanvas.getContext('2d');
+let particles = [];
 
-  function resizeCanvas() {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+function resizeCanvas() {
+  scratchCanvas.width = window.innerWidth;
+  scratchCanvas.height = window.innerHeight;
+  confettiCanvas.width = window.innerWidth;
+  confettiCanvas.height = window.innerHeight;
+  ctx.fillStyle = '#ccc';
+  ctx.fillRect(0, 0, scratchCanvas.width, scratchCanvas.height);
+}
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+
+let isDrawing = false;
+function getPos(e) {
+  if (e.touches) {
+    return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  } else {
+    return { x: e.clientX, y: e.clientY };
   }
-  window.addEventListener('resize', resizeCanvas);
-  resizeCanvas();
+}
 
-  function createConfetti() {
-    particles = [];
-    for (let i = 0; i < 150; i++) {
-      particles.push({
-        x: Math.random() * canvas.width,
-        y: Math.random() * canvas.height - canvas.height,
-        r: Math.random() * 6 + 2,
-        d: Math.random() * 0.5 + 0.5,
-        color: `hsl(${Math.random() * 360}, 100%, 50%)`,
-        tilt: Math.random() * 10 - 10
-      });
+function startDraw(e) {
+  isDrawing = true;
+  draw(e);
+}
+function endDraw() {
+  isDrawing = false;
+  ctx.beginPath();
+  checkScratchPercentage();
+}
+function draw(e) {
+  if (!isDrawing) return;
+  e.preventDefault();
+  const pos = getPos(e);
+  ctx.globalCompositeOperation = 'destination-out';
+  ctx.beginPath();
+  ctx.arc(pos.x, pos.y, 20, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+scratchCanvas.addEventListener('mousedown', startDraw);
+scratchCanvas.addEventListener('mouseup', endDraw);
+scratchCanvas.addEventListener('mousemove', draw);
+scratchCanvas.addEventListener('touchstart', startDraw);
+scratchCanvas.addEventListener('touchend', endDraw);
+scratchCanvas.addEventListener('touchmove', draw);
+
+function checkScratchPercentage() {
+  const imageData = ctx.getImageData(0, 0, scratchCanvas.width, scratchCanvas.height);
+  let cleared = 0;
+  for (let i = 3; i < imageData.data.length; i += 4) {
+    if (imageData.data[i] === 0) cleared++;
+  }
+  const percent = cleared / (scratchCanvas.width * scratchCanvas.height) * 100;
+  if (percent > 50) triggerReveal();
+}
+
+function createConfetti() {
+  particles = [];
+  for (let i = 0; i < 150; i++) {
+    particles.push({
+      x: Math.random() * confettiCanvas.width,
+      y: Math.random() * confettiCanvas.height - confettiCanvas.height,
+      r: Math.random() * 6 + 2,
+      d: Math.random() * 0.5 + 0.5,
+      color: `hsl(${Math.random() * 360}, 100%, 50%)`,
+    });
+  }
+}
+
+function drawConfetti() {
+  confettiCtx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+  for (let p of particles) {
+    confettiCtx.beginPath();
+    confettiCtx.fillStyle = p.color;
+    confettiCtx.ellipse(p.x, p.y, p.r, p.r / 2, Math.random() * Math.PI, 0, 2 * Math.PI);
+    confettiCtx.fill();
+  }
+  updateConfetti();
+  requestAnimationFrame(drawConfetti);
+}
+
+function updateConfetti() {
+  for (let p of particles) {
+    p.y += p.d * 5;
+    if (p.y > confettiCanvas.height) {
+      p.y = -10;
+      p.x = Math.random() * confettiCanvas.width;
     }
   }
+}
 
-  function drawConfetti() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    for (let p of particles) {
-      ctx.beginPath();
-      ctx.fillStyle = p.color;
-      ctx.ellipse(p.x, p.y, p.r, p.r/2, Math.random() * Math.PI, 0, 2 * Math.PI);
-      ctx.fill();
-    }
-    updateConfetti();
-    requestAnimationFrame(drawConfetti);
-  }
-
-  function updateConfetti() {
-    for (let p of particles) {
-      p.y += p.d * 5;
-      if (p.y > canvas.height) {
-        p.y = -10;
-        p.x = Math.random() * canvas.width;
-      }
-    }
-  }
-
-  let lastShake = 0;
-  window.addEventListener('devicemotion', (e) => {
-    let acc = e.accelerationIncludingGravity;
-    let totalAcc = Math.abs(acc.x) + Math.abs(acc.y) + Math.abs(acc.z);
-    let now = Date.now();
-    if (totalAcc > 30 && now - lastShake > 1000) {
-      lastShake = now;
-      triggerReveal();
-    }
-  });
-
-  function triggerReveal() {
-    reveal.style.backgroundImage = "url('me_and_sister.jpg')";
-    reveal.style.opacity = 1;
-    overlayText.style.opacity = 1;
-    sound.play();
-    createConfetti();
-    drawConfetti();
-  }
+function triggerReveal() {
+  scratchCanvas.style.display = 'none';
+  overlayText.style.opacity = 1;
+  sound.play();
+  createConfetti();
+  drawConfetti();
+}
 </script>
 </body>
 </html>
