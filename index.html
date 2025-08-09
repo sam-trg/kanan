@@ -1,1 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Shake to Reveal</title>
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: #111;
+    color: white;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-family: sans-serif;
+    text-align: center;
+    overflow: hidden;
+  }
+  #message {
+    font-size: 2rem;
+    padding: 1rem;
+  }
+  #reveal {
+    position: fixed;
+    inset: 0;
+    background-size: cover;
+    background-position: center;
+    opacity: 0;
+    transition: opacity 1s ease-in-out;
+    z-index: 1;
+  }
+  #overlayText {
+    position: absolute;
+    bottom: 15%;
+    width: 100%;
+    text-align: center;
+    font-size: 2.5rem;
+    color: #fff;
+    font-weight: bold;
+    text-shadow: 0 0 10px rgba(0,0,0,0.8);
+    opacity: 0;
+    transition: opacity 1s ease-in-out;
+  }
+  canvas {
+    position: fixed;
+    top: 0;
+    left: 0;
+    pointer-events: none;
+    z-index: 2;
+  }
+</style>
+</head>
+<body>
+<div id="message">Shake to reveal</div>
+<div id="reveal"></div>
+<div id="overlayText">Happy Rakhi!</div>
+<canvas id="confetti"></canvas>
+<audio id="celebrationSound" src="celebration.mp3" preload="auto"></audio>
 
+<script>
+  const reveal = document.getElementById('reveal');
+  const overlayText = document.getElementById('overlayText');
+  const sound = document.getElementById('celebrationSound');
+  const canvas = document.getElementById('confetti');
+  const ctx = canvas.getContext('2d');
+  let particles = [];
+
+  function resizeCanvas() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+  }
+  window.addEventListener('resize', resizeCanvas);
+  resizeCanvas();
+
+  function createConfetti() {
+    particles = [];
+    for (let i = 0; i < 150; i++) {
+      particles.push({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height - canvas.height,
+        r: Math.random() * 6 + 2,
+        d: Math.random() * 0.5 + 0.5,
+        color: `hsl(${Math.random() * 360}, 100%, 50%)`,
+        tilt: Math.random() * 10 - 10
+      });
+    }
+  }
+
+  function drawConfetti() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    for (let p of particles) {
+      ctx.beginPath();
+      ctx.fillStyle = p.color;
+      ctx.ellipse(p.x, p.y, p.r, p.r/2, Math.random() * Math.PI, 0, 2 * Math.PI);
+      ctx.fill();
+    }
+    updateConfetti();
+    requestAnimationFrame(drawConfetti);
+  }
+
+  function updateConfetti() {
+    for (let p of particles) {
+      p.y += p.d * 5;
+      if (p.y > canvas.height) {
+        p.y = -10;
+        p.x = Math.random() * canvas.width;
+      }
+    }
+  }
+
+  let lastShake = 0;
+  window.addEventListener('devicemotion', (e) => {
+    let acc = e.accelerationIncludingGravity;
+    let totalAcc = Math.abs(acc.x) + Math.abs(acc.y) + Math.abs(acc.z);
+    let now = Date.now();
+    if (totalAcc > 30 && now - lastShake > 1000) {
+      lastShake = now;
+      triggerReveal();
+    }
+  });
+
+  function triggerReveal() {
+    reveal.style.backgroundImage = "url('me_and_sister.jpg')";
+    reveal.style.opacity = 1;
+    overlayText.style.opacity = 1;
+    sound.play();
+    createConfetti();
+    drawConfetti();
+  }
+</script>
+</body>
+</html>
